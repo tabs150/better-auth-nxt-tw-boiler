@@ -5,11 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
-import { signInEmailAction } from '@/app/actions/signin-email.action';
-import Link from 'next/link';
 
-export const LoginForm = () => {
+export const ForgotPasswordForm = () => {
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
@@ -20,16 +19,39 @@ export const LoginForm = () => {
 
     const formData = new FormData(evt.currentTarget as HTMLFormElement);
 
-    const { error } = await signInEmailAction(formData);
+    const email = formData.get("email") as string;
 
-    if (error) {
-      toast.error(error);
+    if (!email) { 
+      toast.error("Email is required");
       setIsPending(false);
-    } else {
-      toast.success('Welcome back!');
+      return;
+    };
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      toast.error("Please enter a valid email address");
       setIsPending(false);
-      router.push('/profile');
-    }
+      return;
+    };
+
+    await authClient.forgetPassword({
+      email,
+      redirectTo: "/reset-password",
+      fetchOptions: {
+        onRequest: () => {
+          setIsPending(true);
+        },
+        onResponse: () => {
+          setIsPending(false);
+        },
+        onError: (ctx) => {
+          toast.error(ctx.error.message);
+        },
+        onSuccess: () => {
+          toast.success("Reset link sent to your email!");
+          router.push("/forgot-password/success");
+        },
+      },
+    });
   }
 
   return (
@@ -39,22 +61,8 @@ export const LoginForm = () => {
         <Input type='email' id='email' name='email' />
       </div>
 
-      <div className='space-y-2'>
-        <div className='flex justify-between items-center gap-2'>
-          <Label htmlFor='password'>Password</Label>
-          <Link
-            href='/forgot-password'
-            className='text-sm italic text-muted-foreground hover:text-foreground'
-          >
-            Forgot password?
-          </Link>
-        </div>
-
-        <Input type='password' id='password' name='password' />
-      </div>
-
       <Button type='submit' className='w-full' disabled={isPending}>
-        Login
+        Reset Password
       </Button>
     </form>
   );
